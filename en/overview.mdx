@@ -1,11 +1,10 @@
 ---
 title: Overview
-description: What the UNO server is, what it can do, and what it does not do yet.
+description: 'What the UNO server is, what it can do, and what it does not do yet.'
 ---
-
 ## What this server is
 
-The UNO server is a Go HTTP service that implements the UNO card game as a small set of JSON endpoints. One author maintains it, and the README describes it as a Go practice project still under development.
+The UNO server is a Go HTTP service that implements the UNO card game as a small set of JSON endpoints.
 
 - Go module `uno-server`, built against `go 1.27.3`.
 - Standard library only. The `go.mod` file has no `require` block.
@@ -17,13 +16,13 @@ The UNO server is a Go HTTP service that implements the UNO card game as a small
 
 Five GET routes cover the whole game.
 
-| Route | What it does |
-| --- | --- |
-| `/ping` | Returns `pong`. Useful as a liveness check. |
-| `/newRoom?pep=2..4` | Creates a room with a random ID and deals 7 cards to each seat. |
-| `/fetchPlayerCards?roomID=&playerID=` | Returns one player's hand. |
-| `/fetchAction?roomID=` | Returns the room state: whose turn it is, the active color, the top card, and pending penalties. |
-| `/action?roomID=&player=&card=[&color=]` | Plays a card for a player. A wild card also takes `color`, the new active color. |
+| Route                                    | What it does                                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/ping`                                  | Returns `pong`. Useful as a liveness check.                                                      |
+| `/newRoom?pep=2..4`                      | Creates a room with a random ID and deals 7 cards to each seat.                                  |
+| `/fetchPlayerCards?roomID=&playerID=`    | Returns one player's hand.                                                                       |
+| `/fetchAction?roomID=`                   | Returns the room state: whose turn it is, the active color, the top card, and pending penalties. |
+| `/action?roomID=&player=&card=[&color=]` | Plays a card for a player. A wild card also takes `color`, the new active color.                 |
 
 A room holds 2 to 4 players, the deck holds 108 cards, and each room is saved as two files in the working directory: `<roomID>.json` for hands and deck, `<roomID>.data.json` for turn state.
 
@@ -57,3 +56,4 @@ The server sets no `Content-Type` header, so HTTP clients receive every body as 
 - [Quickstart](/en/quickstart): start the server and play a first card.
 - [Rooms](/en/concepts/rooms): how room creation, dealing, and state files work.
 - [Play a turn](/en/guides/play-a-turn): the rules the `/action` route enforces.
+
