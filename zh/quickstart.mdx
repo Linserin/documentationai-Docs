@@ -10,7 +10,7 @@ Go 1.27.3。服务只使用 Go 标准库，不需要第三方依赖。
 
 `main.go` 顶部的 `//go:embed web` 指令会把 `web` 目录嵌入二进制文件。该目录至少需要一个文件，其将作为 UNO 游戏的前端。
 
-&#x20;`.gitignore` 排除了 `web/*`，所以没有可嵌入的内容，构建会以 `pattern web: no matching files found` 停止。因此需要自行编写前端。
+当前项目仅使用一个简单的 HTML 页面作为前端，因此如果希望完整的功能则需要自行编写前端。
 
 ```bash
 mkdir -p web

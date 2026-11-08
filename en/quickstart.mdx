@@ -10,7 +10,7 @@ Go 1.27.3. The server uses only the Go standard library, so no third-party depen
 
 The `//go:embed web` directive at the top of `main.go` embeds a `web` directory into the binary. That directory needs at least one file, which will be the frontend of the UNO Game Server.
 
-&#x20;`.gitignore` excludes `web/*`, so a fresh clone has nothing to embed and the build stops with `pattern web: no matching files found`. The frontend is needed to be written.
+The current project only uses a simple HTML page as the front end, so you need to write your own front end if you want complete functions.
 
 ```bash
 mkdir -p web
