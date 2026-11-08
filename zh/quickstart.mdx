@@ -1,0 +1,126 @@
+---
+title: 快速开始
+description: 几步之内完成构建、运行和调用。
+---
+
+## 环境要求
+
+Go 1.27.3。服务只使用 Go 标准库，不需要第三方依赖。
+
+## 创建 web 目录
+
+`main.go` 顶部的 `//go:embed web` 指令会把 `web` 目录嵌入二进制文件。该目录至少需要一个文件，而 `.gitignore` 排除了 `web/*`，所以刚克隆的仓库中没有可嵌入的内容，构建会以 `pattern web: no matching files found` 停止。
+
+```bash
+mkdir -p web
+echo "<h1>UNO</h1>" > web/index.html
+```
+
+文件内容对 API 路由没有影响。服务从 `/` 提供该文件。
+
+## 运行服务
+
+```bash
+go run .
+```
+
+```bash
+go build
+./uno-server
+```
+
+服务监听 `8080` 端口。日志行是 JSON 格式，写入标准输出和当前工作目录下的 `app.json.log`。
+
+## 检查服务
+
+```bash
+curl localhost:8080/ping
+```
+
+```text
+pong
+```
+
+该路由返回纯文本，不带其他路由使用的 JSON 信封。
+
+## 创建房间
+
+```bash
+curl 'localhost:8080/newRoom?pep=2'
+```
+
+```json
+{"error":"","status":"ok","resp":"123"}
+```
+
+`resp` 保存房间 ID，是 0 到 999 的随机整数。`pep` 参数设置玩家数量，取值为 2 到 4。调用返回时，房间文件已写入磁盘。
+
+## 查看状态与手牌
+
+```bash
+curl 'localhost:8080/fetchAction?roomID=<id>'
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+`resp` 是状态结构体的 Go `fmt.Sprint` 输出。各值按字段顺序排列：`ban`、`plusTwo`、`color`、`clockWise`、`turn`、`lastCard`、`plusFour`、`players`。
+
+```bash
+curl 'localhost:8080/fetchPlayerCards?roomID=<id>&playerID=1'
+```
+
+```json
+{"error":"","status":"ok","resp":"[202 303 405]"}
+```
+
+`resp` 是该玩家的手牌，同样以打印形式返回，而不是嵌套的 JSON。`playerID` 超出 1 到 4 的范围会返回错误信封。
+
+<Callout kind="info" collapsed="false">
+
+服务不设置 `Content-Type` 头，因此每个响应体都以 `text/plain` 返回。没有 JSON 格式化工具的查看器只显示原始文本。HTTP 状态码始终为 200，包括出错时。
+
+</Callout>
+
+## 出牌
+
+```bash
+curl 'localhost:8080/action?roomID=<id>&player=1&card=103'
+```
+
+成功时响应体为空。不会有任何内容确认这次出牌，所以需要再次调用 `fetchAction` 查看新的状态。
+
+牌 ID 用百位数字表示颜色：1 表示红色，2 表示黄色，3 表示蓝色，4 表示绿色，5 表示黑色牌。黑色牌（例如 `511`）还需要 `&color=` 参数，取值为 1 到 4，用于设置当前颜色。
+
+```bash
+curl 'localhost:8080/action?roomID=<id>&player=1&card=511&color=3'
+```
+
+出牌被拒绝时返回错误信封，原因写在 `error` 中。
+
+回合顺序、叠加与过牌的处理见 [进行一回合](/zh/guides/play-a-turn)。
+
+## 状态文件的位置
+
+每个房间由进程工作目录下的两个文件保存：
+
+- `<roomID>.json` 保存四份手牌和剩余的牌堆。
+- `<roomID>.data.json` 保存 `fetchAction` 读取的回合状态。
+
+每次出牌都会重写这两个文件，因此重启后磁盘上仍存在的房间会保留。删除这两个文件即可删除房间。
+
+## 下一步
+
+<Columns cols={2}>
+  <Card title="房间" href="/zh/concepts/rooms" icon="folder">
+
+  房间的创建、发牌与存储方式。
+
+  </Card>
+  <Card title="规则" href="/zh/reference/rules" icon="book-open">
+
+  服务校验的牌 ID、合法性判断与罚则。
+
+  </Card>
+</Columns>

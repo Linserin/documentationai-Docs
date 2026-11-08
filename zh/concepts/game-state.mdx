@@ -1,0 +1,68 @@
+---
+title: 游戏状态
+description: 房间状态中的字段及含义。
+---
+
+## 状态保存在哪里
+
+每个房间在运行中服务器的工作目录里保存两个 JSON 文件：`<roomID>.json` 存放手牌，`<roomID>.data.json` 存放回合状态。房间的创建与标识见[房间](/zh/concepts/rooms)。
+
+## GameActionData 字段
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `ban` | bool | 下一回合被禁止；创建房间时设为 `false`，没有任何处理函数改动它 |
+| `plusTwo` | int | 等待结算的叠加 +2 罚牌 |
+| `color` | int，1 到 4 | 当前生效的颜色 |
+| `clockWise` | bool | 出牌方向，`true` 为顺时针 |
+| `turn` | int，1 到 4 | 当前轮到哪位玩家 |
+| `lastCard` | int | 牌堆顶的牌 |
+| `plusFour` | int | 等待结算的叠加 +4 罚牌 |
+| `players` | int | 房间内的玩家数量 |
+
+文件中的字段顺序遵循结构体定义，而不是上表的顺序。
+
+## 读取 /fetchAction
+
+`GET /fetchAction?roomID=<id>` 把保存的状态作为一个字符串返回。
+
+```bash
+curl "http://localhost:8080/fetchAction?roomID=417"
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+`resp` 的值是 Go 的 `fmt.Sprint` 对结构体的输出，因此是按结构体字段顺序（`ban`、`plusTwo`、`color`、`clockWise`、`turn`、`lastCard`、`plusFour`、`players`）排列的纯文本，而不是 JSON。
+
+| 字段 | 值 | 含义 |
+| --- | --- | --- |
+| `ban` | `false` | 回合未被禁止 |
+| `plusTwo` | `0` | 没有待处理的 +2 罚牌 |
+| `color` | `2` | 当前颜色是黄色 |
+| `clockWise` | `true` | 出牌方向为顺时针 |
+| `turn` | `1` | 玩家 1 出牌 |
+| `lastCard` | `223` | 牌堆顶是黄色 +2 |
+| `plusFour` | `0` | 没有待处理的 +4 罚牌 |
+| `players` | `2` | 房间内有 2 名玩家 |
+
+可以按空格拆分该字符串，也可以直接读取 `.data.json` 文件。
+
+## 手牌结构
+
+手牌文件是 `UNO_Cards` 结构体。`first`、`Sec`、`Third`、`Fourth` 分别是玩家 1 到 4 的手牌，`repo` 是摸牌堆。每个字段都是整数数组，每个整数是一张牌的 ID，编号规则见[牌的 ID](/zh/concepts/card-ids)。
+
+对局过程中 `repo` 不再洗牌，取牌从其开头开始。
+
+## 状态如何变化
+
+只有 `/action` 会改变状态。出牌会完整重写两个文件；没有待处理罚牌时的跳过只重写 `<roomID>.data.json`。
+
+保存的文件如果没有 2 到 4 之间的 `players` 值，在推进回合时按 4 人房间处理。
+
+## 限制
+
+所有处理函数共用一个全局请求结构体，因此两个请求同时到达时可能互相覆盖各自的值。
+
+文件写入没有加锁，因此并发请求不安全。

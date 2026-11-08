@@ -1,0 +1,59 @@
+---
+title: 概览
+description: UNO 服务器是什么、能做什么、目前有哪些限制。
+---
+
+## 服务器是什么
+
+UNO 服务器是一个 Go HTTP 服务，用少量 JSON 接口实现 UNO 纸牌游戏。项目由一位作者维护，README 中将其描述为仍在开发中的 Go 练习项目。
+
+- Go 模块 `uno-server`，基于 `go 1.27.3` 构建。
+- 只使用标准库。`go.mod` 中没有 `require` 块。
+- 编译为单个静态二进制文件，通过 `net/http` 的默认多路复用器在端口 `:8080` 上提供 HTTP 服务。
+- 通过 `slog` 以 JSON 格式写日志，输出到标准输出并追加到 `app.json.log`。
+- 采用 `MIT` 许可。
+
+## 能做什么
+
+五个 GET 路由覆盖整局游戏。
+
+| 路由 | 作用 |
+| --- | --- |
+| `/ping` | 返回 `pong`。可用作存活检查。 |
+| `/newRoom?pep=2..4` | 创建房间，随机生成房间 ID，并为每个座位发 7 张牌。 |
+| `/fetchPlayerCards?roomID=&playerID=` | 返回一名玩家的手牌。 |
+| `/fetchAction?roomID=` | 返回房间状态：轮到谁、当前颜色、桌面顶牌以及待处理的罚牌。 |
+| `/action?roomID=&player=&card=[&color=]` | 为一名玩家打出一张牌。黑色牌还需要传 `color`，即新的当前颜色。 |
+
+一个房间容纳 2 到 4 名玩家，牌堆共 108 张牌，每个房间在工作目录中保存为两个文件：`<roomID>.json` 保存手牌和牌堆，`<roomID>.data.json` 保存回合状态。
+
+## 响应结构
+
+五个路由中有四个使用 `jsonify` 包返回同一套响应结构。调用成功时 `status` 为 `ok`，负载以字符串形式放在 `resp` 中：
+
+```json
+{"error":"","status":"ok","resp":"123"}
+```
+
+调用失败时 `status` 为 `bad`，`resp` 为空，错误信息放在 `error` 中：
+
+```json
+{"error":"Invalid Player Number","status":"bad","resp":""}
+```
+
+服务器不设置 `Content-Type` 响应头，因此 HTTP 客户端收到的所有响应体都是 `text/plain`，包括上面两个示例。
+
+## 当前限制
+
+- 摸牌之后再决定是否打出，目前仍是待办事项（`TODO`）。
+- +4 质疑只在源码注释中以描述的形式存在。
+- 没有 UNO 喊牌，没有胜负或回合结束判定，没有计分。
+- 没有身份验证，没有 CORS 响应头，对每个房间的状态文件也没有加锁。
+- 房间 ID 是 0 到 999 的随机整数，不做冲突检查，因此新房间可能覆盖已有房间。
+- 没有测试，也没有 CI。
+
+## 下一步
+
+- [快速开始](/zh/quickstart)：启动服务器并打出第一张牌。
+- [房间](/zh/concepts/rooms)：房间创建、发牌和状态文件的工作方式。
+- [进行一回合](/zh/guides/play-a-turn)：`/action` 路由所执行的规则。

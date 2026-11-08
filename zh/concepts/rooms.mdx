@@ -1,0 +1,84 @@
+---
+title: 房间
+description: 房间如何创建、发牌、识别和保存。
+---
+
+## 创建房间
+
+`GET /newRoom?pep=3` 创建房间并返回其 ID。
+
+```bash
+curl "http://localhost:8080/newRoom?pep=3"
+```
+
+```json
+{"error":"","status":"ok","resp":"417"}
+```
+
+`pep` 是玩家数：2、3 或 4。`resp` 字段保存新房间 ID，取 0 到 999 之间的随机整数。服务端不检查该 ID 是否已被占用，所以新房间可能覆盖同 ID 的已有房间。
+
+<Callout kind="alert">
+
+被覆盖的房间会丢失原有手牌和对局状态。
+
+</Callout>
+
+`pep` 超出 2 到 4 的范围会返回 `Invalid Player Number`，且不创建任何内容。
+
+```json
+{"error":"Invalid Player Number","status":"bad","resp":""}
+```
+
+## 发牌
+
+108 张牌洗在一起，然后按轮转发牌，四个座位各 7 张。共发出 28 张，即座位 1 到座位 4 各 7 张，其余所有牌进入 `repo`，也就是牌堆。
+
+发牌总是先填满四个座位，再收回未使用的座位。2 人局时，座位 3 和座位 4 的手牌回到 `repo`；3 人局时，座位 4 的手牌回到 `repo`。因此牌堆持有所有不在真实玩家手中的牌。
+
+第一张 `lastCard` 从 `repo` 中不断弹出，直到出现非黑色牌，所以对局不会以黑色牌或 +4 开始。当前 `color` 取自这张牌。其余状态在同一时刻设定：`turn` 为 1，`clockWise` 为 true，`ban` 为 false，`players` 为 `pep` 的值。
+
+## 玩家 ID
+
+玩家编号为 1 到 4，每个座位在房间存续期间保持该编号。手牌索引直接对应玩家 ID：手牌 1 是玩家 1，手牌 2 是玩家 2，手牌 3 是玩家 3，手牌 4 是玩家 4。
+
+没有玩家的座位仍存在于文件中。2 人房间里，手牌 3 和手牌 4 是空列表，玩家 ID 3 和 4 不是加入进行中对局的途径。
+
+`/fetchPlayerCards` 对 1 到 4 之外的 ID 返回 `Incorrect Player ID`。该检查在读取任何文件之前执行，所以无论房间是否存在，返回的错误都相同。
+
+## 两个房间文件
+
+每个房间是运行进程工作目录下的两个 JSON 文件，文件名都以房间 ID 命名。
+
+| 文件 | 类型 | 键 |
+| --- | --- | --- |
+| `<roomID>.json` | `UNO_Cards` | `first`、`Sec`、`Third`、`Fourth`、`repo` |
+| `<roomID>.data.json` | `GameActionData` | `ban`、`plusTwo`、`color`、`clockWise`、`turn`、`lastCard`、`plusFour`、`players` |
+
+`first`、`Sec`、`Third`、`Fourth` 的大小写混用是真实的。这些键名直接来自结构体标签，客户端读取文件时要按原样匹配。
+
+两个文件在每次操作时整体重写，且文件从不删除。房间会在磁盘上不断堆积，直到文件被移除。路径是相对路径，所以服务端只能看到进程启动目录中的房间。
+
+## 房间不存在
+
+磁盘上没有文件的房间 ID 不是服务端会捕获的错误。原始 Go 错误会出现在 `error` 字段中：
+
+```json
+{"error":"open 999.json: no such file or directory","status":"bad","resp":""}
+```
+
+读取状态文件的调用会返回 `open 999.data.json: no such file or directory`。任一消息都表示该工作目录中不存在该房间。
+
+## 下一步
+
+<Columns cols={2}>
+  <Card title="游戏状态" href="/zh/concepts/game-state" icon="database">
+
+  `GameActionData` 保存什么，以及它在每次操作中如何变化。
+
+  </Card>
+  <Card title="牌的 ID" href="/zh/concepts/card-ids" icon="code">
+
+  手牌和 `repo` 中的整数如何编码颜色、数字和动作。
+
+  </Card>
+</Columns>

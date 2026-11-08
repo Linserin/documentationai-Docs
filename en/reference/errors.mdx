@@ -1,0 +1,32 @@
+---
+title: Error messages
+description: Every error the server returns, what causes it, and how to fix it.
+---
+
+## Two layers
+
+Some messages come from `main.go`, before the game logic runs: the handler rejects a bad player count, a bad player ID, an out-of-range color, or a query parameter that will not parse. Other messages come from the `gamelogic` package while a card is being played: wrong turn, a card the player does not hold, a card that is not legal, or a stacking penalty that has not been answered.
+
+Both kinds arrive in the same JSON envelope, `{"error":"...","status":"bad","resp":""}`, so a client reads the same field either way. The raw Go errors, such as `open 999.json: no such file or directory` and `strconv.Atoi: parsing "abc": invalid syntax`, are HTTP-layer messages that the server does not reword.
+
+## Error list
+
+| Message | Layer | Cause | Fix |
+| --- | --- | --- | --- |
+| `Invalid Player Number` | HTTP | `pep` is outside 2 to 4 on `/newRoom` | Send `pep=2`, `pep=3` or `pep=4`. |
+| `Incorrect Player ID` | HTTP | `playerID` is outside 1 to 4 on `/fetchPlayerCards` | Send 1, 2, 3 or 4. |
+| `Color must be 1-4` | HTTP | the optional `color` on `/action` is outside 1 to 4 | Send 1 to 4, or leave `color` out. |
+| `strconv.Atoi: parsing "abc": invalid syntax` | HTTP | a query parameter is missing or not a number | Send every numeric parameter as an integer. |
+| `open 999.json: no such file or directory` | HTTP | the hand file of that room ID is missing in the working directory | Create the room with `/newRoom`, check the ID, start the server from the directory that holds the room files. |
+| `open 999.data.json: no such file or directory` | HTTP | the state file of that room ID is missing in the working directory | Same as above. |
+| `card cannot be 0` | game | `card=0` is sent to `/action` | Send a real card ID, or `1000` to pass. |
+| `Not your turn` | game | `player` does not match `turn` in the room state | Read `/fetchAction` and send the player ID it reports. |
+| `Illegal card ID` | game | the card is not one of the 108 deck IDs and is not `1000` | Send an ID from the hand, or `1000` to pass. |
+| `Card Not Found in player` | game | the card ID is valid but not in that player's hand | Re-read the hand with `/fetchPlayerCards` and send an ID from it. |
+| `Must stack +2 or pass` | game | `plusTwo` is above 0 and the card is not a +2 of the active color | Play a +2 of the active color, or send `1000` to draw the penalty and pass. |
+| `Must stack +4 or pass` | game | `plusFour` is above 0 and the card is not a +4 | Play a +4, or send `1000` to draw the penalty and pass. |
+| `Card Not Legal` | game | the card breaks the color, number or action match rule | Read `color` and `lastCard`, then play a matching card. See [Game rules](/en/reference/rules). |
+
+## Notes
+
+Raw Go errors carry no friendly wording, so clients should match on the start of the message rather than the exact string. The message text is part of the API and should not be reworded in your own layer. Build and runtime problems outside the API are covered in [Troubleshooting](/en/guides/troubleshooting).

@@ -1,0 +1,126 @@
+---
+title: 进行一回合
+description: 从查看状态到打出一张牌的完整流程。
+---
+
+## 开始之前
+
+需要一个已运行的服务器和一个已创建的房间。服务器监听 `:8080`，并把每个房间保存在进程的工作目录中，因此重启进程后之前创建的房间仍然存在。
+
+- [启动服务器并创建房间](/zh/quickstart)
+- [房间、玩家和文件的工作方式](/zh/concepts/rooms)
+
+所有路由都是 `GET`，只使用查询参数。服务器不设置 `Content-Type` 头，因此每个响应体都以 `text/plain` 返回，包括看起来像 JSON 的响应。
+
+## 第 1 步：查看状态
+
+`GET /fetchAction?roomID=<id>` 以单个字符串返回回合状态。出牌之前先读取状态，它说明轮到谁，以及当前哪些牌合法。
+
+```bash
+curl "http://localhost:8080/fetchAction?roomID=417"
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+`resp` 中的值是打印成文本的状态结构。字段以空格分隔，顺序固定。
+
+| 位置 | 字段 | 含义 |
+| --- | --- | --- |
+| 1 | `ban` | 封禁下一位玩家的标记。创建房间时设为 `false`，之后没有其他操作会改变它。 |
+| 2 | `plusTwo` | 待处理的 +2 罚牌。下一位玩家过牌时需要摸的牌数。 |
+| 3 | `color` | 当前颜色，1 到 4（1 红、2 黄、3 蓝、4 绿）。 |
+| 4 | `clockWise` | 出牌方向。`true` 表示顺时针。 |
+| 5 | `turn` | 轮到出牌的玩家 ID。 |
+| 6 | `lastCard` | 牌堆顶的牌 ID。 |
+| 7 | `plusFour` | 待处理的 +4 罚牌。 |
+| 8 | `players` | 房间内的玩家数。 |
+
+上面的状态是：没有待处理的 +2，当前颜色 2，顺时针方向，轮到玩家 1，牌堆顶为 223，没有待处理的 +4，房间内有两名玩家。
+
+`turn` 的值与动作中发送的 `player` 一致。选牌之前检查 `color`、`lastCard`、`plusTwo` 和 `plusFour`，它们决定哪些牌合法。
+
+## 第 2 步：查看手牌
+
+`GET /fetchPlayerCards?roomID=<id>&playerID=<1..4>` 以牌 ID 列表返回一名玩家的手牌。
+
+```bash
+curl "http://localhost:8080/fetchPlayerCards?roomID=417&playerID=1"
+```
+
+```json
+{"error":"","status":"ok","resp":"[202 303 405]"}
+```
+
+列表中的每个数字是一个牌 ID。百位是颜色：1 红、2 黄、3 蓝、4 绿、5 黑。其余数字标识牌本身。下一步直接使用返回的这些 ID。
+
+## 第 3 步：选择合法的牌
+
+牌为 `1000`、或为黑牌、或颜色与当前颜色相同、或为与 `lastCard` 数字相同的数字牌、或为与 `lastCard` 相同的功能牌时可以出。其他情况返回 `Card Not Legal`。完整规则（包括黑牌和功能牌的比对方式）见[规则](/zh/reference/rules)。
+
+## 第 4 步：发送出牌请求
+
+`GET /action?roomID=<id>&player=<1..4>&card=<id>` 出一张牌。黑牌附加 `color=1..4` 设置新的当前颜色。
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=1&card=223"
+```
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=1&card=521&color=3"
+```
+
+第二个请求出黑牌 521，并把当前颜色设为 3（蓝）。只有黑牌使用 `color` 值；其他牌的颜色来自牌本身。
+
+`color` 可选。发送时取值为 1、2、3 或 4，否则服务器返回 `Color must be 1-4`。出黑牌且不带 `color` 时，已保存的颜色在 1 到 4 之间则保持不变，否则变为 1。
+
+## 第 5 步：查看结果
+
+成功的出牌返回空响应体，没有 JSON。没有需要解析的内容：HTTP 调用未返回错误信封，说明牌已出。
+
+失败时返回常见的信封，`"status":"bad"`，原因写在 `error` 中。
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=2&card=223"
+```
+
+```json
+{"error":"Not your turn","status":"bad","resp":""}
+```
+
+再次调用 `/fetchAction` 查看新状态。`lastCard` 是刚出的牌，`turn` 已经移动，出黑牌时 `color` 已经改变。然后调用 `/fetchPlayerCards` 确认该牌已离开手牌。
+
+## 过牌与罚牌
+
+`card=1000` 过牌。`plusTwo` 或 `plusFour` 大于 0 时，过牌从牌堆摸 `plusTwo + plusFour` 张牌，两个罚牌计数重置为 0，`lastCard` 不变，回合前进一位。
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=1&card=1000"
+```
+
+没有待处理罚牌时，过牌只是把回合交给下一位玩家。它从不改变牌堆顶的牌。
+
+## 罚牌叠加
+
+`plusTwo` 大于 0 时，只能出当前颜色的 +2。其他牌返回 `Must stack +2 or pass`。`plusFour` 大于 0 时，只能出 +4。其他牌返回 `Must stack +4 or pass`。
+
+叠加把牌加到同一个罚牌计数上，而不是摸牌：+2 使 `plusTwo` 加 2，+4 使 `plusFour` 加 4，每次回合前进一位。无法叠加或选择不叠加的玩家过牌，并摸走累计的全部牌数。
+
+## 每张牌的效果
+
+- **Skip** 前进 2 个回合，下一位玩家失去出牌机会。
+- **Reverse** 在 2 人局中前进 2 个回合。3 人及以上时翻转 `clockWise` 并前进 1 个回合。
+- **+2** 使 +2 罚牌计数加 2，并前进 1 个回合。
+- **+4** 使 +4 罚牌计数加 4，并前进 1 个回合。
+- **其他所有牌** 前进 1 个回合。
+
+功能牌由牌 ID 的后两位识别，因此黑牌 `521`、`522` 和 `523` 也分别执行 Skip、Reverse 和 +2 的效果。黑牌从 `color` 参数取得新的当前颜色。
+
+## 常见错误
+
+- `Not your turn`：发送的 `player` 与当前状态中的 `turn` 不一致。
+- `Card Not Legal`：牌不满足当前颜色、`lastCard` 或叠加限制的匹配规则。
+- `Card Not Found in player`：牌 ID 有效，但不在该玩家手牌中。
+
+完整的信息列表见[错误](/zh/reference/errors)，常见问题的处理见[故障排查](/zh/guides/troubleshooting)。

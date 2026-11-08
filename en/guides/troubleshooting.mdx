@@ -1,0 +1,149 @@
+---
+title: Troubleshooting
+description: Fixes for common errors when building and running the server.
+---
+## Build fails with pattern web: no matching files found
+
+The `//go:embed web` directive in `main.go` requires a `web` directory that contains at least one file. `.gitignore` excludes `web/*`, so a fresh clone has no such directory and the build stops.
+
+Create `web/index.html`, or any other file inside `web`, and build again.
+
+```bash
+mkdir -p web
+printf '%s\n' '<!doctype html><title>UNO</title>' > web/index.html
+go build ./...
+```
+
+## open 999.json: no such file or directory
+
+The room does not exist, or the process runs in a different working directory. Room files are opened by relative path, so they are looked for in the directory the process was started from.
+
+Create the room with `/newRoom`, and start the server from the directory that holds the room files.
+
+```bash
+curl -s "http://localhost:8080/newRoom?pep=3"
+```
+
+## strconv.Atoi: parsing "abc": invalid syntax
+
+A query parameter is missing or not a number. The handler returns the raw Go error text in `error`.
+
+Send every numeric parameter as an integer: `roomID`, `playerID`, `player`, `card`, `pep`, `color`.
+
+```json
+{"error":"strconv.Atoi: parsing \"abc\": invalid syntax","status":"bad","resp":""}
+```
+
+## Invalid Player Number
+
+`pep` on `/newRoom` is outside 2 to 4.
+
+Send `pep=2`, `pep=3`, or `pep=4`.
+
+```bash
+curl -s "http://localhost:8080/newRoom?pep=3"
+```
+
+## Incorrect Player ID
+
+`playerID` on `/fetchPlayerCards` is outside 1 to 4. Seat numbers are 1-based.
+
+Use 1, 2, 3, or 4.
+
+```bash
+curl -s "http://localhost:8080/fetchPlayerCards?roomID=421&playerID=1"
+```
+
+## Color must be 1-4
+
+The optional `color` on `/action` is outside 1 to 4.
+
+Send 1 (red), 2 (yellow), 3 (blue), or 4 (green), or leave the parameter out.
+
+```bash
+curl -s "http://localhost:8080/action?roomID=421&player=1&card=521&color=3"
+```
+
+## Not your turn
+
+The `player` value does not match `turn` in `<roomID>.data.json`.
+
+Read `/fetchAction` and send the player ID it reports.
+
+```bash
+curl -s "http://localhost:8080/fetchAction?roomID=421"
+```
+
+## Illegal card ID
+
+The `card` value is not one of the 108 deck IDs and is not `1000`.
+
+Send an ID from the hand returned by `/fetchPlayerCards`, or `1000` to pass. The encoding is documented in [Card IDs](/en/concepts/card-ids).
+
+## Card Not Found in player
+
+The card ID is valid but is not in that player's hand. The hand may be stale, or the card was already played.
+
+Re-read the hand and send an ID from it.
+
+```bash
+curl -s "http://localhost:8080/fetchPlayerCards?roomID=421&playerID=1"
+```
+
+## Card Not Legal
+
+The card breaks the color, number, or action match rule.
+
+Read `color` and `lastCard` from `/fetchAction` and play a matching card. The full matching logic is in [Rules](/en/reference/rules).
+
+## Must stack +2 or pass
+
+`plusTwo` is above 0 and the played card is not a +2 of the active color.
+
+Play a Draw Two of the active color, or send `card=1000` to draw the penalty and pass.
+
+## Must stack +4 or pass
+
+`plusFour` is above 0 and the played card is not a +4.
+
+Play a Wild +4, or send `card=1000` to draw the penalty and pass.
+
+```bash
+curl -s "http://localhost:8080/action?roomID=421&player=2&card=1000"
+```
+
+## card cannot be 0
+
+`card=0` is rejected before any other check. Card IDs never have the value 0.
+
+Send a real card ID, or `1000` to pass.
+
+## Responses look like plain text, not JSON
+
+No handler sets a `Content-Type` header, so clients receive the body as `text/plain`. The body is still the JSON envelope.
+
+Parse the body as text and read `status` (`ok` or `bad`) before `resp`.
+
+```bash
+curl -s "http://localhost:8080/fetchAction?roomID=421"
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+## A new room overwrote an old one
+
+Room IDs are random integers from 0 to 999 and the server does not check whether an ID is already in use. A new room can replace the two files of an existing room without warning.
+
+Create a new room when the state looks unexpected. Nothing can recover the overwritten files.
+
+## go build complains about go.sum entries
+
+`go.sum` holds entries for dependencies that `go.mod` no longer requires, while `go.mod` lists no requirements.
+
+```bash
+go mod tidy
+```
+
+The full list of messages is on [Error messages](/en/reference/errors).

@@ -1,0 +1,74 @@
+---
+title: Card IDs
+description: How the 108 cards are numbered.
+---
+
+## The deck
+
+Every card in the deck is a plain integer between `100` and `524`. There are 108 of them, and the number itself carries the color and the face.
+
+## Color by the hundreds digit
+
+Divide any card ID by 100 and the result is the color.
+
+| Hundreds digit | Color |
+| --- | --- |
+| 1 | Red |
+| 2 | Yellow |
+| 3 | Blue |
+| 4 | Green |
+| 5 | Black (wild) |
+
+## Number cards
+
+Each color block holds 25 cards. The zero is a single card: `100`, `200`, `300`, `400`.
+
+Every number from 1 to 9 appears twice, once in the `101`–`109` range and once in the `111`–`119` range. The same pattern repeats for the 2xx, 3xx and 4xx colors, so red 7 is either `107` or `117`, yellow 7 is `207` or `217`, and so on.
+
+That gives 1 zero plus 18 numbered cards, which leaves 6 cards per color for actions.
+
+## Action cards
+
+The last two digits 21 and 31 are Skip, 22 and 32 are Reverse, and 23 and 33 are Draw Two.
+
+| Action | Last two digits | IDs |
+| --- | --- | --- |
+| Skip | 21, 31 | `121`, `131`, `221`, `231`, `321`, `331`, `421`, `431` |
+| Reverse | 22, 32 | `122`, `132`, `222`, `232`, `322`, `332`, `422`, `432` |
+| Draw Two (+2) | 23, 33 | `123`, `133`, `223`, `233`, `323`, `333`, `423`, `433` |
+
+Two IDs per action per color, three actions per color, four colors: 24 action cards in all.
+
+## Black cards
+
+Black cards use the 5xx block and split into two ranges.
+
+| Range | Card |
+| --- | --- |
+| `511`–`514` | Wild Draw Four (+4) |
+| `521`–`524` | Wild |
+
+The four IDs in each range are functionally identical. `511` and `514` are both a +4, and `521` and `524` are both a wild. The separate IDs exist so that four copies of each card can sit in the deck as distinct integers.
+
+## The pass card
+
+`1000` means pass. It is never in the deck and never has a color.
+
+## Reading a card ID
+
+Three expressions recover everything from the integer.
+
+```go
+color := card / 100          // 1 red, 2 yellow, 3 blue, 4 green, 5 black
+number := (card % 100) % 10  // 0 through 9
+isWild := card/100 == 5
+```
+
+For `223`: `223 / 100` is 2, so the card is yellow. `223 % 100` is 23, which is an action suffix, and `23 % 10` is 3, so it is a +2. Yellow +2.
+
+For `513`: `513 / 100` is 5, so the card is black and therefore wild. `513 % 100` is 13, which falls in the `511`–`514` range, so it is a Wild Draw Four. The `number` expression returns 3 there, but the hundreds digit already told us the card is not a number card.
+
+## Next steps
+
+- [Game rules](/en/reference/rules)
+- [Play a turn](/en/guides/play-a-turn)

@@ -1,0 +1,68 @@
+---
+title: Rooms
+description: How a room is created, dealt, identified, and stored.
+---
+
+## Create a room
+
+`GET /newRoom?pep=3` creates a room and returns its ID.
+
+```bash
+curl "http://localhost:8080/newRoom?pep=3"
+```
+
+```json
+{"error":"","status":"ok","resp":"417"}
+```
+
+The `pep` value is the number of players: 2, 3, or 4. The `resp` field holds the new room ID, a random integer from 0 to 999. The server does not check whether that ID is already in use, so a new room can overwrite an existing room with the same ID. The old hands and game state are lost.
+
+A `pep` value outside 2 to 4 returns `Invalid Player Number` and creates nothing.
+
+```json
+{"error":"Invalid Player Number","status":"bad","resp":""}
+```
+
+## Deal the cards
+
+All 108 cards are shuffled into one deck, then dealt round-robin, 7 cards to each of four seats. That is 28 cards dealt, 7 to seat 1, 7 to seat 2, and so on. Every remaining card goes to `repo`, the draw pile.
+
+The deal always fills all four seats, then folds the unused ones back. For 2 players, the hands of seats 3 and 4 go back into `repo`. For 3 players, the hand of seat 4 goes back. The deck therefore holds every card that is not in a real player's hand.
+
+The first `lastCard` is popped from `repo` until a non-black card comes up, so the game never starts on a wild or a +4. The active `color` is taken from that card. The rest of the state is set at the same moment: `turn` is 1, `clockWise` is true, `ban` is false, and `players` is the `pep` value.
+
+## Player IDs
+
+Players are numbered 1 to 4, and each seat keeps that number for the life of the room. Hand index maps directly to player ID: hand 1 is player 1, hand 2 is player 2, hand 3 is player 3, hand 4 is player 4.
+
+Seats without a player still exist in the files. In a 2-player room, hands 3 and 4 are empty lists and player IDs 3 and 4 are not a way to join a running game.
+
+`/fetchPlayerCards` rejects any ID outside 1 to 4 with `Incorrect Player ID`. The check runs before any file is read, so it returns the same error whether or not the room exists.
+
+## The two room files
+
+Each room is two JSON files in the working directory of the running process. Both are named after the room ID.
+
+| File | Type | Keys |
+| --- | --- | --- |
+| `<roomID>.json` | `UNO_Cards` | `first`, `Sec`, `Third`, `Fourth`, `repo` |
+| `<roomID>.data.json` | `GameActionData` | `ban`, `plusTwo`, `color`, `clockWise`, `turn`, `lastCard`, `plusFour`, `players` |
+
+The mixed capitalization in `first`, `Sec`, `Third`, and `Fourth` is real. Those key names come straight from the struct tags, so a client reading the file has to match them exactly.
+
+Both files are rewritten in full on every action, and no file is ever deleted. Rooms pile up on disk until the files are removed. The paths are relative, so the server only sees the rooms in the directory the process was started from.
+
+## Missing room
+
+A room ID with no files on disk is not an error the server catches. The raw Go error comes back in the `error` field:
+
+```json
+{"error":"open 999.json: no such file or directory","status":"bad","resp":""}
+```
+
+A call that reads the state file instead returns `open 999.data.json: no such file or directory`. Either message means the room does not exist in that working directory.
+
+## Next steps
+
+- [Game state](/en/concepts/game-state): what `GameActionData` holds and how it changes on each action.
+- [Card IDs](/en/concepts/card-ids): how the integers in the hands and in `repo` encode color, number, and action.

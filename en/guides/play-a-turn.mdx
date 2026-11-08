@@ -1,0 +1,125 @@
+---
+title: Play a turn
+description: One turn from checking state to playing a card.
+---
+## Before you start
+
+You need a running server and an existing room. The server listens on `:8080` and stores each room in its working directory, so a room you created earlier is still there when you restart the process.
+
+- [Start the server and create a room](/en/quickstart)
+- [How rooms, players and files work](/en/concepts/rooms)
+
+Every route is a `GET` with query parameters only. The server does not set a `Content-Type` header, so every response body arrives as `text/plain`, including the ones that look like JSON.
+
+## Step 1: read the state
+
+`GET /fetchAction?roomID=<id>` returns the turn state as a single string. Read it before you play, because it tells you whose turn it is and which cards are legal right now.
+
+```bash
+curl "http://localhost:8080/fetchAction?roomID=417"
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+The value in `resp` is the state structure printed as text. The fields are separated by spaces and always appear in this order.
+
+| Position | Field       | Meaning                                                                                         |
+| -------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| 1        | `ban`       | Flag for banning the next player. Room creation sets it to `false` and nothing else changes it. |
+| 2        | `plusTwo`   | Pending +2 penalty. Cards the next player must draw if they pass.                               |
+| 3        | `color`     | Active color, 1 to 4 (1 red, 2 yellow, 3 blue, 4 green).                                        |
+| 4        | `clockWise` | Direction of play. `true` means clockwise.                                                      |
+| 5        | `turn`      | Player ID whose turn it is.                                                                     |
+| 6        | `lastCard`  | Card ID on top of the pile.                                                                     |
+| 7        | `plusFour`  | Pending +4 penalty.                                                                             |
+| 8        | `players`   | Number of players in the room.                                                                  |
+
+In the example above the state is: no pending +2, active color 2, clockwise direction, player 1 to act, card 223 on top, no pending +4, two players.
+
+The `turn` value must match the `player` you send in the action. Check `color`, `lastCard`, `plusTwo` and `plusFour` before you choose a card, because they decide what is legal.
+
+## Step 2: read the hand
+
+`GET /fetchPlayerCards?roomID=<id>&playerID=<1..4>` returns one player's hand as a list of card IDs.
+
+```bash
+curl "http://localhost:8080/fetchPlayerCards?roomID=417&playerID=1"
+```
+
+```json
+{"error":"","status":"ok","resp":"[202 303 405]"}
+```
+
+Each number in the list is a card ID. The hundreds digit is the color: 1 red, 2 yellow, 3 blue, 4 green, 5 black. The remaining digits identify the card itself. Use these IDs exactly as returned in the next step.
+
+## Step 3: choose a legal card
+
+A card can be played when it is `1000`, or a black card, or its color matches the active color, or it is a number card with the same number as `lastCard`, or it is the same action as `lastCard`. Anything else is rejected with `Card Not Legal`. The full rule, including how black cards and action cards are compared, is in [Rules](/en/reference/rules).
+
+## Step 4: send the action
+
+`GET /action?roomID=<id>&player=<1..4>&card=<id>` plays a card. For a black card, add `color=1..4` to set the new active color.
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=1&card=223"
+```
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=1&card=521&color=3"
+```
+
+The second call plays the black card 521 and sets the active color to 3 (blue). Only black cards use the `color` value; for other cards the active color comes from the card itself.
+
+`color` is optional. When sent, it must be 1, 2, 3 or 4, otherwise the server returns `Color must be 1-4`. When a black card is played without `color`, the stored color stays if it is 1 to 4, and becomes 1 otherwise.
+
+## Step 5: read the result
+
+A successful action returns an empty body and no JSON. There is nothing to parse: the HTTP call returning without an error envelope means the card was played.
+
+A failure returns the usual envelope with `"status":"bad"` and the reason in `error`.
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=2&card=223"
+```
+
+```json
+{"error":"Not your turn","status":"bad","resp":""}
+```
+
+Call `/fetchAction` again to see the new state. `lastCard` will be the card you played, `turn` will have moved, and `color` will have changed if you played a black card. Then call `/fetchPlayerCards` to confirm the card has left the hand.
+
+## Pass and penalties
+
+`card=1000` passes your turn. If `plusTwo` or `plusFour` is above 0, passing draws `plusTwo + plusFour` cards from the draw pile, both penalties reset to 0, `lastCard` stays the same, and the turn advances by one.
+
+```bash
+curl "http://localhost:8080/action?roomID=417&player=1&card=1000"
+```
+
+Passing with no pending penalty simply moves the turn on. It never changes the card on top of the pile.
+
+## Stacking
+
+While `plusTwo` is above 0, only a +2 of the active color may be played. Any other card returns `Must stack +2 or pass`. While `plusFour` is above 0, only a +4 may be played. Any other card returns `Must stack +4 or pass`.
+
+Stacking adds to the same penalty instead of drawing: a +2 raises `plusTwo` by 2, a +4 raises `plusFour` by 4, and the turn advances by one each time. The player who cannot or does not stack passes and draws the whole accumulated amount.
+
+## What each card does
+
+- **Skip** advances 2 turns, so the next player loses their move.
+- **Reverse** advances 2 turns in a 2-player game. With 3 or more players it flips `clockWise` and advances 1.
+- **+2** adds 2 to the +2 penalty and advances 1.
+- **+4** adds 4 to the +4 penalty and advances 1.
+- **Every other card** advances 1.
+
+Action cards are recognised by the last two digits of their ID, so the black cards `521`, `522` and `523` also run the Skip, Reverse and +2 effects. Black cards take the new active color from the `color` parameter.
+
+## Common mistakes
+
+- `Not your turn`: the `player` you sent does not match `turn` in the current state. Call `/fetchAction` and use the player ID it reports.
+- `Card Not Legal`: the card breaks the matching rule for the active color, `lastCard`, or the stacking gate. Check `color`, `lastCard`, `plusTwo` and `plusFour` before you retry.
+- `Card Not Found in player`: the card ID is valid but is not in that player's hand. Call `/fetchPlayerCards` and send an ID from the list.
+
+See [Errors](/en/reference/errors) for the full list of messages and [Troubleshooting](/en/guides/troubleshooting) for fixes to common problems.

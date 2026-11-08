@@ -1,0 +1,38 @@
+---
+title: 错误信息
+description: 服务器返回的错误信息、原因和处理方式。
+---
+
+## 两类错误
+
+部分错误信息来自 `main.go`，在游戏逻辑执行之前就返回：处理器会拒绝非法的玩家数、非法的玩家 ID、超出范围的颜色，或者无法解析的查询参数。另一部分来自 `gamelogic` 包，发生在出牌过程中：不是该玩家回合、手里没有这张牌、这张牌不合法，或者还有未处理的叠加罚牌。
+
+两类错误使用同一个 JSON 信封返回，客户端读的是同一个字段：
+
+```json
+{"error":"Not your turn","status":"bad","resp":""}
+```
+
+原始 Go 错误，例如 `open 999.json: no such file or directory` 和 `strconv.Atoi: parsing "abc": invalid syntax`，属于 HTTP 层的报错，服务器不会对它们做任何改写。
+
+## 错误列表
+
+| Message | 层 | 原因 | 处理 |
+| --- | --- | --- | --- |
+| `Invalid Player Number` | HTTP | `/newRoom` 的 `pep` 不在 2 到 4 之间 | 发送 `pep=2`、`pep=3` 或 `pep=4`。 |
+| `Incorrect Player ID` | HTTP | `/fetchPlayerCards` 的 `playerID` 不在 1 到 4 之间 | 发送 1、2、3 或 4。 |
+| `Color must be 1-4` | HTTP | `/action` 的可选参数 `color` 不在 1 到 4 之间 | 发送 1 到 4，或者不传 `color`。 |
+| `strconv.Atoi: parsing "abc": invalid syntax` | HTTP | 某个查询参数缺失或不是数字 | 把每个数值参数都按整数发送。 |
+| `open 999.json: no such file or directory` | HTTP | 工作目录中缺少该房间 ID 的手牌文件 | 用 `/newRoom` 创建房间，核对房间 ID，并确保从存放房间文件的目录启动服务器。 |
+| `open 999.data.json: no such file or directory` | HTTP | 工作目录中缺少该房间 ID 的状态文件 | 同上。 |
+| `card cannot be 0` | 游戏 | `/action` 收到 `card=0` | 发送真实的牌 ID，或发送 `1000` 过牌。 |
+| `Not your turn` | 游戏 | `player` 与房间状态中的 `turn` 不一致 | 读取 `/fetchAction`，使用它返回的玩家 ID 发送。 |
+| `Illegal card ID` | 游戏 | 牌不属于 108 张牌的 ID 范围，也不是 `1000` | 发送手牌中的 ID，或发送 `1000` 过牌。 |
+| `Card Not Found in player` | 游戏 | 牌 ID 合法，但不在该玩家手牌中 | 用 `/fetchPlayerCards` 重新读取手牌，发送其中的 ID。 |
+| `Must stack +2 or pass` | 游戏 | `plusTwo` 大于 0，而这张牌不是当前颜色的 +2 | 出当前颜色的 +2，或发送 `1000` 摸走罚牌并过牌。 |
+| `Must stack +4 or pass` | 游戏 | `plusFour` 大于 0，而这张牌不是 +4 | 出 +4，或发送 `1000` 摸走罚牌并过牌。 |
+| `Card Not Legal` | 游戏 | 牌不符合颜色、数字或功能牌的匹配规则 | 读取 `color` 和 `lastCard`，再出匹配的牌。参见[游戏规则](/zh/reference/rules)。 |
+
+## 说明
+
+原始 Go 错误没有经过友好化处理，客户端应匹配信息的开头，而不是匹配完整字符串。这些信息文本属于 API 的一部分，在调用方自己的层中也不做改写。API 之外的构建和运行问题，参见[故障排查](/zh/guides/troubleshooting)。

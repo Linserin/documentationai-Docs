@@ -1,0 +1,55 @@
+---
+title: Game rules
+description: How the server decides whether a card is legal, and what happens after it is played.
+---
+
+## Legal cards
+
+A card can be played when it is `1000`, or a black card (`511` through `524`), or its color equals the active color, or both it and `lastCard` are number cards with the same number, or both are the same action type (Skip with Skip, Reverse with Reverse, +2 with +2). Anything else returns `Card Not Legal`. The color encoding and full ID ranges are listed in [Card IDs](/en/concepts/card-ids).
+
+## Order of checks
+
+The server stops at the first failure, so the error you receive identifies the earliest problem, not the only one.
+
+1. The card is `0`, which returns `card cannot be 0` before anything else.
+2. The `player` value must equal `turn`, otherwise `Not your turn`.
+3. A `card` of `1000` is handled as a pass and skips the rest of the checks.
+4. The card must be one of the 108 deck IDs (`Illegal card ID`) and must be in that player's hand (`Card Not Found in player`), checked in that order.
+5. While `plusTwo` is above 0, only a +2 of the active color is allowed (`Must stack +2 or pass`); while `plusFour` is above 0, only a +4 is allowed (`Must stack +4 or pass`).
+6. The legality rule above applies (`Card Not Legal`).
+7. The card leaves the hand and the active color is updated.
+8. The card effect runs.
+9. `lastCard` is set and both room files are written.
+
+## Active color
+
+A black card sets the color from the `color` query parameter, which must be `1` to `4`; when `color` is absent and the stored color is not `1` to `4`, the color falls back to `1`. Every other card sets the color to the hundreds digit of its ID, so `223` makes yellow active.
+
+## Card effects
+
+| Card | Effect | Turns advanced |
+| --- | --- | --- |
+| Skip | The next player loses their turn | 2 |
+| Reverse, 2 players | Acts like Skip | 2 |
+| Reverse, 3 or 4 players | Flips `clockWise` | 1 |
+| +2 | Adds 2 to `plusTwo` | 1 |
+| +4 | Adds 4 to `plusFour` | 1 |
+| Number card, or the black card `524` | No effect | 1 |
+
+Effects are matched on the last two digits of the card ID, so the black cards `521`, `522` and `523` also run the Skip, Reverse and +2 effects.
+
+See [Play a turn](/en/guides/play-a-turn) for the request that sends a card to the server.
+
+## Stacking penalties
+
+While `plusTwo` is above 0, a +2 of the active color is the only card allowed and it adds 2 to `plusTwo`; while `plusFour` is above 0, only a +4 is allowed and it adds 4 to `plusFour`.
+
+A player who passes with a penalty open draws `plusTwo + plusFour` cards from `repo`, both counters reset to `0`, `lastCard` stays the same, and the turn advances by one.
+
+## Turn advance
+
+The turn moves inside `1` to `players` in the direction of `clockWise`; a saved room without a valid `players` value is treated as 4 players.
+
+## Not implemented
+
+The server does not support drawing a card and then deciding whether to play it (the README still lists it as a todo), challenging a +4, calling UNO, detecting a win or the end of a round, or scoring.

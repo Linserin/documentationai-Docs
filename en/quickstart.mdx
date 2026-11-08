@@ -1,0 +1,115 @@
+---
+title: Quickstart
+description: 'Build, run, and call the UNO server in a few steps.'
+---
+## Requirements
+
+Go 1.27.3. The server uses only the Go standard library, so no third-party dependencies are needed.
+
+## Create the web directory
+
+The `//go:embed web` directive at the top of `main.go` embeds a `web` directory into the binary. That directory needs at least one file, and `.gitignore` excludes `web/*`, so a fresh clone has nothing to embed and the build stops with `pattern web: no matching files found`.
+
+```bash
+mkdir -p web
+echo "<h1>UNO</h1>" > web/index.html
+```
+
+The file content does not matter for the API routes. The server serves it from `/`.
+
+## Run the server
+
+Start the process straight from the source tree.
+
+```bash
+go run .
+```
+
+Or build a binary and run it.
+
+```bash
+go build
+./uno-server
+```
+
+The server listens on port `8080`. Its log lines are JSON, written to stdout and to `app.json.log` in the working directory.
+
+## Check that it runs
+
+```bash
+curl localhost:8080/ping
+```
+
+```text
+pong
+```
+
+This route returns the plain word, without the JSON envelope that every other route uses.
+
+## Create a room
+
+```bash
+curl 'localhost:8080/newRoom?pep=2'
+```
+
+```json
+{"error":"","status":"ok","resp":"123"}
+```
+
+`resp` holds the room ID, a random integer from 0 to 999. The `pep` parameter sets the number of players and accepts 2 to 4. The room files are written to disk as soon as the call returns.
+
+## Read the state and a hand
+
+```bash
+curl 'localhost:8080/fetchAction?roomID=<id>'
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+`resp` is a Go `fmt.Sprint` of the state struct. The values appear in field order: `ban`, `plusTwo`, `color`, `clockWise`, `turn`, `lastCard`, `plusFour`, `players`.
+
+```bash
+curl 'localhost:8080/fetchPlayerCards?roomID=<id>&playerID=1'
+```
+
+```json
+{"error":"","status":"ok","resp":"[202 303 405]"}
+```
+
+`resp` is that player's hand, again printed rather than nested as JSON. A `playerID` outside 1 to 4 returns an error envelope.
+
+<Callout kind="info" collapsed="false">
+  The server sets no `Content-Type` header, so every body arrives as `text/plain`. A viewer without a JSON formatter shows the raw text. The HTTP status is always 200, including for errors.
+</Callout>
+
+## Play a card
+
+```bash
+curl 'localhost:8080/action?roomID=<id>&player=1&card=103'
+```
+
+On success the response body is empty. Nothing is returned to confirm the move, so call `fetchAction` again to see the new state.
+
+Card IDs encode color in the hundreds digit: 1 red, 2 yellow, 3 blue, 4 green, 5 for black cards. A black card, such as `511`, also needs `&color=` with a value from 1 to 4 to set the active color.
+
+```bash
+curl 'localhost:8080/action?roomID=<id>&player=1&card=511&color=3'
+```
+
+A rejected move returns an error envelope with the reason in `error`. For turn order, stacking, and pass rules, see [Play a turn](/en/guides/play-a-turn).
+
+## Where the state is saved
+
+Each room lives in two files in the working directory of the process:
+
+- `<roomID>.json` holds the four hands and the remaining deck.
+- `<roomID>.data.json` holds the turn state read by `fetchAction`.
+
+Every action rewrites both files, so a restart keeps the rooms that are still on disk. Delete the pair to drop a room.
+
+## Next steps
+
+- [Rooms](/en/concepts/rooms): how a room is created, dealt, and stored.
+- [Rules](/en/reference/rules): the card IDs, legality checks, and penalty rules the server enforces.

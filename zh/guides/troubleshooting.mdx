@@ -1,0 +1,150 @@
+---
+title: 故障排查
+description: 构建和运行时的常见错误与处理方式。
+---
+
+## 构建失败 pattern web: no matching files found
+
+`main.go` 中的 `//go:embed web` 指令要求 `web` 目录存在，并且目录中至少有一个文件。`.gitignore` 排除了 `web/*`，所以新克隆的仓库里没有这个目录，构建到此中止。
+
+创建 `web/index.html`，或者 `web` 目录下的任意其他文件，然后重新构建。
+
+```bash
+mkdir -p web
+printf '%s\n' '<!doctype html><title>UNO</title>' > web/index.html
+go build ./...
+```
+
+## open 999.json: no such file or directory
+
+房间不存在，或者进程运行在不同的工作目录中。房间文件按相对路径打开，因此服务端会在进程启动时所在的目录中查找这些文件。
+
+用 `/newRoom` 创建房间，并从存放房间文件的目录启动服务端。
+
+```bash
+curl -s "http://localhost:8080/newRoom?pep=3"
+```
+
+## strconv.Atoi: parsing "abc": invalid syntax
+
+某个查询参数缺失或不是数字。处理函数会把 Go 的原始错误文本原样放进 `error` 字段返回。
+
+所有数值参数都以整数形式传入：`roomID`、`playerID`、`player`、`card`、`pep`、`color`。
+
+```json
+{"error":"strconv.Atoi: parsing \"abc\": invalid syntax","status":"bad","resp":""}
+```
+
+## Invalid Player Number
+
+`/newRoom` 上的 `pep` 超出 2 到 4 的范围。
+
+传入 `pep=2`、`pep=3` 或 `pep=4`。
+
+```bash
+curl -s "http://localhost:8080/newRoom?pep=3"
+```
+
+## Incorrect Player ID
+
+`/fetchPlayerCards` 上的 `playerID` 超出 1 到 4 的范围。座位号从 1 开始。
+
+使用 1、2、3 或 4。
+
+```bash
+curl -s "http://localhost:8080/fetchPlayerCards?roomID=421&playerID=1"
+```
+
+## Color must be 1-4
+
+`/action` 上可选的 `color` 超出 1 到 4 的范围。
+
+传入 1（红）、2（黄）、3（蓝）或 4（绿），或者省略该参数。
+
+```bash
+curl -s "http://localhost:8080/action?roomID=421&player=1&card=521&color=3"
+```
+
+## Not your turn
+
+`player` 的值与 `<roomID>.data.json` 中的 `turn` 不一致。
+
+读取 `/fetchAction`，传入它返回的玩家 ID。
+
+```bash
+curl -s "http://localhost:8080/fetchAction?roomID=421"
+```
+
+## Illegal card ID
+
+`card` 的值不属于 108 张牌的 ID 范围，也不是 `1000`。
+
+传入 `/fetchPlayerCards` 返回手牌中的某个 ID，或者传 `1000` 表示过牌。 ID 的编码方式见牌的 ID 页面。
+
+## Card Not Found in player
+
+牌 ID 有效，但不在该玩家的手牌中。手牌数据可能已经过期，也可能这张牌已经打出去了。
+
+重新读取手牌，并传入其中的某个 ID。
+
+```bash
+curl -s "http://localhost:8080/fetchPlayerCards?roomID=421&playerID=1"
+```
+
+## Card Not Legal
+
+这张牌不满足颜色、数字或功能牌的匹配规则。
+
+从 `/fetchAction` 读取 `color` 和 `lastCard`，打出与之匹配的牌。完整的匹配规则见[游戏规则](/zh/reference/rules)。
+
+## Must stack +2 or pass
+
+`plusTwo` 大于 0，且打出的牌不是当前颜色的 +2。
+
+打出当前颜色的 Draw Two，或者传 `card=1000` 领取惩罚牌并过牌。
+
+## Must stack +4 or pass
+
+`plusFour` 大于 0，且打出的牌不是 +4。
+
+打出 Wild +4，或者传 `card=1000` 领取惩罚牌并过牌。
+
+```bash
+curl -s "http://localhost:8080/action?roomID=421&player=2&card=1000"
+```
+
+## card cannot be 0
+
+`card=0` 会在其他所有检查之前就被拒绝。牌 ID 的取值中不会出现 0。
+
+传入真实的牌 ID，或者传 `1000` 表示过牌。
+
+## 响应是纯文本而不是 JSON
+
+没有任何处理函数设置 `Content-Type` 头，因此客户端收到的响应体按 `text/plain` 处理。响应体本身仍是 JSON 信封结构。
+
+先把响应体当作文本解析，读取 `status`（`ok` 或 `bad`），再读取 `resp`。
+
+```bash
+curl -s "http://localhost:8080/fetchAction?roomID=421"
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+## 新房间覆盖了旧房间
+
+房间 ID 是 0 到 999 之间的随机整数，服务端不检查该 ID 是否已被占用。新建房间可能在不给出任何提示的情况下，覆盖掉已有房间的两个文件。
+
+状态出现异常时新建房间。被覆盖的文件无法恢复。
+
+## go build 提示 go.sum 条目问题
+
+`go.sum` 里保留着 `go.mod` 已不再需要的依赖条目，而 `go.mod` 本身没有列出任何依赖。
+
+```bash
+go mod tidy
+```
+
+全部信息见[错误信息](/zh/reference/errors)。

@@ -1,0 +1,209 @@
+openapi: 3.0.3
+info:
+  title: UNO Server API
+  version: 1.0.0
+  description: |
+    该服务器是一个小型 Go 练习项目，仍在开发中。
+
+    本文档描述服务器当前对外提供的 HTTP 路由。
+
+    - 所有路由都使用 GET 方法。
+    - 调用不需要认证。
+    - 服务器不设置 Content-Type 头，因此所有响应体都是 text/plain。
+    - 房间与对局接口的响应体是 JSON 文本（响应信封），调用方需要自行解析。
+servers:
+  - url: http://localhost:8080
+    description: 本地开发服务器
+tags:
+  - name: Health
+    description: 健康检查，用于确认服务器正在运行。
+  - name: Rooms
+    description: 创建房间并读取玩家手牌。
+  - name: Game
+    description: 读取房间的公共状态并出牌。
+paths:
+  /ping:
+    get:
+      tags:
+        - Health
+      operationId: ping
+      summary: 探测服务器
+      description: |
+        返回纯文本 `pong`。这是唯一不返回响应信封的路由。
+
+        失败时同样使用响应信封，`status` 为 `bad`，`error` 保存错误信息，`resp` 为空串。对局相关的错误列在错误信息页面。
+      responses:
+        '200':
+          description: 纯文本 `pong`。
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: pong
+  /newRoom:
+    get:
+      tags:
+        - Rooms
+      operationId: newRoom
+      summary: 创建新房间
+      description: |
+        为指定数量的玩家创建新房间，并以 JSON 文本返回响应信封。`resp` 是新房间 ID：0 到 999 之间的随机整数，因此新房间可能覆盖已使用同一 ID 的现有房间。
+
+        失败时同样使用响应信封，`status` 为 `bad`，`error` 保存错误信息，`resp` 为空串。对局相关的错误列在错误信息页面。
+      parameters:
+        - name: pep
+          in: query
+          required: true
+          description: 玩家数量。
+          schema:
+            type: integer
+            minimum: 2
+            maximum: 4
+          example: 2
+      responses:
+        '200':
+          description: 响应信封，JSON 文本。`resp` 是新房间 ID，0 到 999 之间的随机整数。
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"","status":"ok","resp":"123"}'
+  /fetchPlayerCards:
+    get:
+      tags:
+        - Rooms
+      operationId: fetchPlayerCards
+      summary: 读取玩家手牌
+      description: |
+        以 JSON 文本返回响应信封。`resp` 是玩家手牌，由 Go 的 `fmt.Sprint` 作用于 int 切片生成，因此牌编号之间用空格分隔，没有逗号。牌的 ID 含义见牌的 ID 页面。
+
+        失败时同样使用响应信封，`status` 为 `bad`，`error` 保存错误信息，`resp` 为空串。对局相关的错误列在错误信息页面。
+      parameters:
+        - name: roomID
+          in: query
+          required: true
+          description: 要读取的房间 ID。
+          schema:
+            type: integer
+          example: 123
+        - name: playerID
+          in: query
+          required: true
+          description: 要读取手牌的玩家 ID。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          example: 1
+      responses:
+        '200':
+          description: 响应信封，JSON 文本。`resp` 是玩家手牌，牌 ID 之间用空格分隔。
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"","status":"ok","resp":"[202 303 405]"}'
+  /fetchAction:
+    get:
+      tags:
+        - Game
+      operationId: fetchAction
+      summary: 读取对局状态
+      description: |
+        以 JSON 文本返回响应信封。`resp` 是状态结构体的 `fmt.Sprint` 输出，字段顺序固定：ban、plusTwo、color、clockWise、turn、lastCard、plusFour、players。示例响应体依次为 ban 为 false，plusTwo 为 0，color 为 2，clockWise 为 true，turn 为 1，lastCard 为 223，plusFour 为 0，players 为 2。
+
+        失败时同样使用响应信封，`status` 为 `bad`，`error` 保存错误信息，`resp` 为空串。对局相关的错误列在错误信息页面。
+      parameters:
+        - name: roomID
+          in: query
+          required: true
+          description: 要读取状态的房间 ID。
+          schema:
+            type: integer
+          example: 123
+      responses:
+        '200':
+          description: 响应信封，JSON 文本。`resp` 是由 Go 的 `fmt.Sprint` 打印的状态结构体。
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}'
+  /action:
+    get:
+      tags:
+        - Game
+      operationId: playAction
+      summary: 出牌
+      description: |
+        在房间中打出一张牌。成功时服务器不写入任何响应体。
+
+        失败时同样使用响应信封，`status` 为 `bad`，`error` 保存错误信息，`resp` 为空串。对局相关的错误列在错误信息页面。
+      parameters:
+        - name: roomID
+          in: query
+          required: true
+          description: 要出牌的牌所在房间 ID。
+          schema:
+            type: integer
+          example: 123
+        - name: player
+          in: query
+          required: true
+          description: 出牌的玩家 ID。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          example: 1
+        - name: card
+          in: query
+          required: true
+          description: 要打出的牌 ID，1000 表示过牌。
+          schema:
+            type: integer
+          example: 223
+        - name: color
+          in: query
+          required: false
+          description: 只由黑色牌 511 到 524 使用，用于设置当前颜色；参数缺失时保留已存颜色，已存颜色不在 1 到 4 内时使用 1。
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          example: 2
+      responses:
+        '200':
+          description: 成功。服务器不写入任何响应体，因此该响应没有内容。
+        'default':
+          description: 失败。响应体是响应信封的 JSON 文本：`status` 为 `bad`，`error` 保存错误信息，`resp` 为空串。对局相关的错误列在错误信息页面。
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"error message","status":"bad","resp":""}'
+components:
+  schemas:
+    ResponseEnvelope:
+      type: object
+      description: 除 `/ping` 之外所有路由返回的响应信封。服务器不设置 Content-Type 头，因此正文以 `text/plain` 内容类型提供，内容是 JSON 文本，调用方需要自行解析。
+      properties:
+        error:
+          type: string
+          description: 错误信息，调用成功时为空串。
+          example: ''
+        status:
+          type: string
+          description: 调用结果，成功为 `ok`，失败为 `bad`。
+          enum:
+            - ok
+            - bad
+          example: ok
+        resp:
+          type: string
+          description: 调用的负载，出错时为空串。
+          example: '123'
+      required:
+        - error
+        - status
+        - resp

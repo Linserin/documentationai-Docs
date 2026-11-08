@@ -1,0 +1,69 @@
+---
+title: Game state
+description: The fields in a room's saved state and what each one means.
+---
+## Where the state lives
+
+Each room keeps two JSON files in the working directory of the running server: `<roomID>.json` for the hands and `<roomID>.data.json` for the turn state. See [Rooms](/en/concepts/rooms) for how a room is created and dealt.
+
+## GameActionData fields
+
+The turn state is the `GameActionData` struct.
+
+| Field       | Type        | Meaning                                                                             |
+| ----------- | ----------- | ----------------------------------------------------------------------------------- |
+| `ban`       | bool        | the next turn is banned; room creation sets it to `false` and no handler changes it |
+| `plusTwo`   | int         | a stacked +2 penalty waiting to be resolved                                         |
+| `color`     | int, 1 to 4 | the active color                                                                    |
+| `clockWise` | bool        | play direction, true is clockwise                                                   |
+| `turn`      | int, 1 to 4 | the player whose turn it is                                                         |
+| `lastCard`  | int         | the card on top of the pile                                                         |
+| `plusFour`  | int         | a stacked +4 penalty waiting to be resolved                                         |
+| `players`   | int         | number of players in the room                                                       |
+
+Field order in the file follows the struct, not the table above.
+
+## Reading /fetchAction
+
+`GET /fetchAction?roomID=<id>` returns the saved state as one string.
+
+```bash
+curl "http://localhost:8080/fetchAction?roomID=417"
+```
+
+```json
+{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}
+```
+
+The `resp` value is Go's `fmt.Sprint` of the struct, so it is plain text in struct field order (`ban`, `plusTwo`, `color`, `clockWise`, `turn`, `lastCard`, `plusFour`, `players`), not JSON.
+
+| Field       | Value   | Meaning                    |
+| ----------- | ------- | -------------------------- |
+| `ban`       | `false` | the turn is not banned     |
+| `plusTwo`   | `0`     | no +2 penalty is pending   |
+| `color`     | `2`     | yellow is active           |
+| `clockWise` | `true`  | play moves clockwise       |
+| `turn`      | `1`     | player 1 acts              |
+| `lastCard`  | `223`   | a yellow +2 is on the pile |
+| `plusFour`  | `0`     | no +4 penalty is pending   |
+| `players`   | `2`     | two players in the room    |
+
+Parse the string by splitting on spaces, or read the `.data.json` file directly.
+
+## Hand representation
+
+The hands file is the `UNO_Cards` struct. `first`, `Sec`, `Third`, and `Fourth` are the hands of player 1 to 4, and `repo` is the draw pile. Every field is an array of integers, and each integer is a card ID: see [Card IDs](/en/concepts/card-ids).
+
+`repo` is never shuffled again during play. Cards are taken from its start.
+
+## How state changes
+
+Only `/action` changes the state. A card that is played rewrites both files in full; a pass with no pending penalty rewrites `<roomID>.data.json` only.
+
+A saved file with no `players` value between 2 and 4 is treated as a room of 4 players when the turn advances.
+
+## Limits
+
+The handlers share one global request struct, so two requests at the same time can overwrite each other's values.
+
+The files are written without locks, so concurrent requests are not safe.

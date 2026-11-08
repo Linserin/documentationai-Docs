@@ -9,146 +9,174 @@
     }
   },
   "navigation": {
-    "tabs": [
+    "languages": [
       {
-        "tab": "Documentation",
-        "icon": "book",
-        "groups": [
+        "language": "English",
+        "tabs": [
           {
-            "group": "Start Here",
-            "icon": "rocket",
-            "pages": [
+            "tab": "Documentation",
+            "icon": "book",
+            "groups": [
               {
-                "title": "Introduction",
-                "path": "introduction",
-                "icon": "home"
+                "group": "Start Here",
+                "icon": "rocket",
+                "pages": [
+                  {
+                    "title": "Overview",
+                    "path": "en/overview"
+                  },
+                  {
+                    "title": "Quickstart",
+                    "path": "en/quickstart"
+                  }
+                ]
               },
               {
-                "title": "Quickstart",
-                "path": "quickstart",
-                "icon": "zap"
+                "group": "Concepts",
+                "icon": "layers",
+                "pages": [
+                  {
+                    "title": "Rooms",
+                    "path": "en/concepts/rooms"
+                  },
+                  {
+                    "title": "Card IDs",
+                    "path": "en/concepts/card-ids"
+                  },
+                  {
+                    "title": "Game State",
+                    "path": "en/concepts/game-state"
+                  }
+                ]
               },
               {
-                "title": "Components",
-                "path": "components",
-                "icon": "code"
+                "group": "Guides",
+                "icon": "book-open",
+                "pages": [
+                  {
+                    "title": "Play a Turn",
+                    "path": "en/guides/play-a-turn"
+                  },
+                  {
+                    "title": "Troubleshooting",
+                    "path": "en/guides/troubleshooting"
+                  }
+                ]
+              },
+              {
+                "group": "Reference",
+                "icon": "file-text",
+                "pages": [
+                  {
+                    "title": "Game Rules",
+                    "path": "en/reference/rules"
+                  },
+                  {
+                    "title": "Error Messages",
+                    "path": "en/reference/errors"
+                  }
+                ]
               }
             ]
           },
           {
-            "group": "Components",
-            "icon": "layers",
-            "pages": [
+            "tab": "API Reference",
+            "icon": "code",
+            "groups": [
               {
-                "title": "Images",
-                "path": "components/images",
-                "icon": "image"
-              },
-              {
-                "title": "Cards",
-                "path": "components/cards",
-                "icon": "square"
-              },
-              {
-                "title": "Code",
-                "path": "components/code",
-                "icon": "code"
-              },
-              {
-                "title": "Callouts",
-                "path": "components/callouts",
-                "icon": "message-square"
-              },
-              {
-                "title": "Steps",
-                "path": "components/steps",
-                "icon": "list-ordered"
-              },
-              {
-                "title": "Tabs",
-                "path": "components/tabs",
-                "icon": "columns"
+                "group": "Endpoints",
+                "icon": "server",
+                "pages": [],
+                "openapi": "en/openapi.yaml"
               }
             ]
           }
         ]
       },
       {
-        "tab": "API Reference",
-        "icon": "code",
-        "groups": [
+        "language": "中文",
+        "tabs": [
           {
-            "group": "Overview",
-            "icon": "file-text",
-            "pages": [
+            "tab": "文档",
+            "icon": "book",
+            "groups": [
               {
-                "title": "Authentication",
-                "path": "authentication",
-                "icon": "lock"
+                "group": "开始使用",
+                "icon": "rocket",
+                "pages": [
+                  {
+                    "title": "概览",
+                    "path": "zh/overview"
+                  },
+                  {
+                    "title": "快速开始",
+                    "path": "zh/quickstart"
+                  }
+                ]
+              },
+              {
+                "group": "核心概念",
+                "icon": "layers",
+                "pages": [
+                  {
+                    "title": "房间",
+                    "path": "zh/concepts/rooms"
+                  },
+                  {
+                    "title": "牌的 ID",
+                    "path": "zh/concepts/card-ids"
+                  },
+                  {
+                    "title": "游戏状态",
+                    "path": "zh/concepts/game-state"
+                  }
+                ]
+              },
+              {
+                "group": "使用指南",
+                "icon": "book-open",
+                "pages": [
+                  {
+                    "title": "进行一回合",
+                    "path": "zh/guides/play-a-turn"
+                  },
+                  {
+                    "title": "故障排查",
+                    "path": "zh/guides/troubleshooting"
+                  }
+                ]
+              },
+              {
+                "group": "参考",
+                "icon": "file-text",
+                "pages": [
+                  {
+                    "title": "游戏规则",
+                    "path": "zh/reference/rules"
+                  },
+                  {
+                    "title": "错误信息",
+                    "path": "zh/reference/errors"
+                  }
+                ]
               }
             ]
           },
           {
-            "group": "Sample Endpoints",
-            "openapi": "openapi.yaml"
-          }
-        ]
-      },
-      {
-        "tab": "Help Center",
-        "icon": "help-circle",
-        "pages": [
-          {
-            "title": "Help Center",
-            "path": "help-center",
-            "icon": "home"
-          },
-          {
-            "group": "FAQs",
-            "icon": "help-circle",
-            "expandable": false,
-            "pages": [
+            "tab": "API 参考",
+            "icon": "code",
+            "groups": [
               {
-                "title": "Documentation Source",
-                "path": "help-center/faq/getting-started"
+                "group": "接口",
+                "icon": "server",
+                "pages": [],
+                "openapi": "zh/openapi.yaml"
               }
             ]
-          },
-          {
-            "group": "Troubleshooting",
-            "icon": "alert-triangle",
-            "expandable": false,
-            "pages": [
-              {
-                "title": "Page Missing in Sidebar",
-                "path": "help-center/troubleshooting/install-error"
-              }
-            ]
-          },
-          {
-            "group": "Guides",
-            "icon": "book-open",
-            "expandable": false,
-            "pages": [
-              {
-                "title": "Create Your First Page",
-                "path": "help-center/guides/setup-project"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "Changelog",
-        "icon": "clock",
-        "pages": [
-          {
-            "title": "Changelog",
-            "path": "changelog",
-            "icon": "history"
           }
         ]
       }
     ]
-  }
+  },
+  "initialRoute": "en/overview"
 }

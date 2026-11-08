@@ -1,0 +1,208 @@
+openapi: "3.0.3"
+info:
+  title: "UNO Server API"
+  version: "1.0.0"
+  description: |-
+    The UNO Server is a small Go practice project that is still under development, and this document describes the HTTP routes it exposes today. Every route uses the GET method, and no authentication is required. The server sets no Content-Type header on any response, so every body is served as `text/plain`. The bodies returned by the room and game endpoints are JSON text (the response envelope) that the caller must parse itself.
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+tags:
+  - name: Health
+    description: Liveness check used to confirm the server is running.
+  - name: Rooms
+    description: Create a room and read the cards held by a player.
+  - name: Game
+    description: Read the shared game state of a room and play a card.
+paths:
+  /ping:
+    get:
+      operationId: ping
+      summary: Ping the server
+      description: |-
+        Returns the plain text `pong`. This is the only route that returns something other than the response envelope.
+
+        Failures use the same envelope: `status` is `bad`, `error` holds the message, and `resp` is empty. Game errors are listed on the Error Messages page.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Plain text `pong`.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: pong
+  /newRoom:
+    get:
+      operationId: newRoom
+      summary: Create a new room
+      description: |-
+        Creates a new room for the requested number of players and returns the response envelope as JSON text. `resp` is the new room ID: a random integer from 0 to 999, so a new room can overwrite an existing room that already uses the same ID.
+
+        Failures use the same envelope: `status` is `bad`, `error` holds the message, and `resp` is empty. Game errors are listed on the Error Messages page.
+      tags:
+        - Rooms
+      parameters:
+        - name: pep
+          in: query
+          required: true
+          description: Number of players.
+          schema:
+            type: integer
+            minimum: 2
+            maximum: 4
+          example: 2
+      responses:
+        '200':
+          description: |-
+            Response envelope as JSON text. `resp` is the new room ID, a random integer from 0 to 999.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"","status":"ok","resp":"123"}'
+  /fetchPlayerCards:
+    get:
+      operationId: fetchPlayerCards
+      summary: Fetch a player's cards
+      description: |-
+        Returns the response envelope as JSON text. `resp` is the player's hand as produced by Go's `fmt.Sprint` on an int slice, so the card numbers appear separated by spaces without commas. Card IDs are explained on the Card IDs page.
+
+        Failures use the same envelope: `status` is `bad`, `error` holds the message, and `resp` is empty. Game errors are listed on the Error Messages page.
+      tags:
+        - Rooms
+      parameters:
+        - name: roomID
+          in: query
+          required: true
+          description: ID of the room to read from.
+          schema:
+            type: integer
+          example: 123
+        - name: playerID
+          in: query
+          required: true
+          description: ID of the player whose hand is returned.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          example: 1
+      responses:
+        '200':
+          description: |-
+            Response envelope as JSON text. `resp` is the player's hand as a space-separated list of card IDs.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"","status":"ok","resp":"[202 303 405]"}'
+  /fetchAction:
+    get:
+      operationId: fetchAction
+      summary: Fetch the game state
+      description: |-
+        Returns the response envelope as JSON text. `resp` is Go's `fmt.Sprint` of the state struct, and the field order is fixed: ban, plusTwo, color, clockWise, turn, lastCard, plusFour, players. The sample body reads as ban false, plusTwo 0, color 2, clockWise true, turn 1, lastCard 223, plusFour 0, players 2.
+
+        Failures use the same envelope: `status` is `bad`, `error` holds the message, and `resp` is empty. Game errors are listed on the Error Messages page.
+      tags:
+        - Game
+      parameters:
+        - name: roomID
+          in: query
+          required: true
+          description: ID of the room whose state is returned.
+          schema:
+            type: integer
+          example: 123
+      responses:
+        '200':
+          description: |-
+            Response envelope as JSON text. `resp` is the state struct printed by Go's `fmt.Sprint`.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"","status":"ok","resp":"{false 0 2 true 1 223 0 2}"}'
+  /action:
+    get:
+      operationId: playAction
+      summary: Play a card
+      description: |-
+        Plays a card in the room. On success the server writes no body at all.
+
+        Failures use the same envelope: `status` is `bad`, `error` holds the message, and `resp` is empty. Game errors are listed on the Error Messages page.
+      tags:
+        - Game
+      parameters:
+        - name: roomID
+          in: query
+          required: true
+          description: ID of the room the card is played in.
+          schema:
+            type: integer
+          example: 123
+        - name: player
+          in: query
+          required: true
+          description: ID of the player playing the card.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          example: 1
+        - name: card
+          in: query
+          required: true
+          description: Card ID to play, 1000 means pass.
+          schema:
+            type: integer
+          example: 223
+        - name: color
+          in: query
+          required: false
+          description: Used only by black cards 511–524 to set the active color; when it is absent the stored color is kept unless that color is not 1–4, in which case 1 is used.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+          example: 2
+      responses:
+        '200':
+          description: |-
+            Success. The server returns nothing: it writes no body, so there is no content for this response.
+        default:
+          description: |-
+            Failure. The body is the response envelope as JSON text: `status` is `bad`, `error` holds the message, and `resp` is empty. Game errors are listed on the Error Messages page.
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: '{"error":"error message","status":"bad","resp":""}'
+components:
+  schemas:
+    ResponseEnvelope:
+      type: object
+      description: |-
+        Envelope returned by every route except `/ping`. It is served as JSON text with a `text/plain` content type, because the server sets no Content-Type header, so the caller has to parse it.
+      properties:
+        error:
+          type: string
+          description: Error message; empty when the call succeeded.
+          example: ""
+        status:
+          type: string
+          description: Outcome of the call, `ok` on success and `bad` on failure.
+          enum:
+            - ok
+            - bad
+          example: ok
+        resp:
+          type: string
+          description: Payload of the call; empty on error.
+          example: "123"
+      required:
+        - error
+        - status
+        - resp

@@ -1,0 +1,59 @@
+---
+title: Overview
+description: What the UNO server is, what it can do, and what it does not do yet.
+---
+
+## What this server is
+
+The UNO server is a Go HTTP service that implements the UNO card game as a small set of JSON endpoints. One author maintains it, and the README describes it as a Go practice project still under development.
+
+- Go module `uno-server`, built against `go 1.27.3`.
+- Standard library only. The `go.mod` file has no `require` block.
+- Compiles to a single static binary that serves HTTP on port `:8080` through the `net/http` default mux.
+- Logs through `slog` as JSON, written to stdout and appended to `app.json.log`.
+- MIT licensed.
+
+## What it does
+
+Five GET routes cover the whole game.
+
+| Route | What it does |
+| --- | --- |
+| `/ping` | Returns `pong`. Useful as a liveness check. |
+| `/newRoom?pep=2..4` | Creates a room with a random ID and deals 7 cards to each seat. |
+| `/fetchPlayerCards?roomID=&playerID=` | Returns one player's hand. |
+| `/fetchAction?roomID=` | Returns the room state: whose turn it is, the active color, the top card, and pending penalties. |
+| `/action?roomID=&player=&card=[&color=]` | Plays a card for a player. A wild card also takes `color`, the new active color. |
+
+A room holds 2 to 4 players, the deck holds 108 cards, and each room is saved as two files in the working directory: `<roomID>.json` for hands and deck, `<roomID>.data.json` for turn state.
+
+## Response format
+
+Four of the five routes answer with the same envelope from the `jsonify` package. A successful call sets `status` to `ok` and puts the payload in `resp` as a string:
+
+```json
+{"error":"","status":"ok","resp":"123"}
+```
+
+A failed call sets `status` to `bad`, leaves `resp` empty, and puts the message in `error`:
+
+```json
+{"error":"Invalid Player Number","status":"bad","resp":""}
+```
+
+The server sets no `Content-Type` header, so HTTP clients receive every body as `text/plain`, including the ones above.
+
+## Current limits
+
+- Drawing a card and then deciding whether to play it is an open TODO.
+- The +4 challenge exists only as a description in source comments.
+- No UNO call, no win or round-end detection, no scoring.
+- No authentication, no CORS headers, no locking around the per-room state files.
+- Room IDs are random integers from 0 to 999 with no collision check, so a new room can overwrite an existing one.
+- No tests and no CI.
+
+## Next steps
+
+- [Quickstart](/en/quickstart): start the server and play a first card.
+- [Rooms](/en/concepts/rooms): how room creation, dealing, and state files work.
+- [Play a turn](/en/guides/play-a-turn): the rules the `/action` route enforces.
