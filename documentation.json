@@ -1,5 +1,4 @@
 {
-  "name": "Starter Kit",
   "colors": {
     "light": {
       "brand": "#F97316"
@@ -178,5 +177,13 @@
       }
     ]
   },
-  "initialRoute": "en/overview"
+  "initialRoute": "en/overview",
+  "title": "Yet Another UNO Server",
+  "name": "Yet Another UNO Server",
+  "description": "The docs of Linserin's UNO Server.",
+  "footer": {
+    "socials": {
+      "github": "https://github.com/linserin/uno-server"
+    }
+  }
 }
