@@ -2,14 +2,15 @@
 title: 快速开始
 description: 几步之内完成构建、运行和调用。
 ---
-
 ## 环境要求
 
 Go 1.27.3。服务只使用 Go 标准库，不需要第三方依赖。
 
 ## 创建 web 目录
 
-`main.go` 顶部的 `//go:embed web` 指令会把 `web` 目录嵌入二进制文件。该目录至少需要一个文件，而 `.gitignore` 排除了 `web/*`，所以刚克隆的仓库中没有可嵌入的内容，构建会以 `pattern web: no matching files found` 停止。
+`main.go` 顶部的 `//go:embed web` 指令会把 `web` 目录嵌入二进制文件。该目录至少需要一个文件，其将作为 UNO 游戏的前端。
+
+&#x20;`.gitignore` 排除了 `web/*`，所以没有可嵌入的内容，构建会以 `pattern web: no matching files found` 停止。因此需要自行编写前端。
 
 ```bash
 mkdir -p web
@@ -78,9 +79,7 @@ curl 'localhost:8080/fetchPlayerCards?roomID=<id>&playerID=1'
 `resp` 是该玩家的手牌，同样以打印形式返回，而不是嵌套的 JSON。`playerID` 超出 1 到 4 的范围会返回错误信封。
 
 <Callout kind="info" collapsed="false">
-
-服务不设置 `Content-Type` 头，因此每个响应体都以 `text/plain` 返回。没有 JSON 格式化工具的查看器只显示原始文本。HTTP 状态码始终为 200，包括出错时。
-
+  服务不设置 `Content-Type` 头，因此每个响应体都以 `text/plain` 返回。没有 JSON 格式化工具的查看器只显示原始文本。HTTP 状态码始终为 200，包括出错时。
 </Callout>
 
 ## 出牌
@@ -112,15 +111,13 @@ curl 'localhost:8080/action?roomID=<id>&player=1&card=511&color=3'
 
 ## 下一步
 
-<Columns cols={2}>
-  <Card title="房间" href="/zh/concepts/rooms" icon="folder">
-
-  房间的创建、发牌与存储方式。
-
+<Columns cols="2">
+  <Card title="房间" href="/zh/concepts/rooms" icon="folder" horizontal="false">
+    房间的创建、发牌与存储方式。
   </Card>
-  <Card title="规则" href="/zh/reference/rules" icon="book-open">
 
-  服务校验的牌 ID、合法性判断与罚则。
-
+  <Card title="规则" href="/zh/reference/rules" icon="book-open" horizontal="false">
+    服务校验的牌 ID、合法性判断与罚则。
   </Card>
 </Columns>
+

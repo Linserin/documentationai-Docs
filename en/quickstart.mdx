@@ -8,7 +8,9 @@ Go 1.27.3. The server uses only the Go standard library, so no third-party depen
 
 ## Create the web directory
 
-The `//go:embed web` directive at the top of `main.go` embeds a `web` directory into the binary. That directory needs at least one file, and `.gitignore` excludes `web/*`, so a fresh clone has nothing to embed and the build stops with `pattern web: no matching files found`.
+The `//go:embed web` directive at the top of `main.go` embeds a `web` directory into the binary. That directory needs at least one file, which will be the frontend of the UNO Game Server.
+
+&#x20;`.gitignore` excludes `web/*`, so a fresh clone has nothing to embed and the build stops with `pattern web: no matching files found`. The frontend is needed to be written.
 
 ```bash
 mkdir -p web
@@ -113,3 +115,4 @@ Every action rewrites both files, so a restart keeps the rooms that are still on
 
 - [Rooms](/en/concepts/rooms): how a room is created, dealt, and stored.
 - [Rules](/en/reference/rules): the card IDs, legality checks, and penalty rules the server enforces.
+
