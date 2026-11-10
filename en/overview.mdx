@@ -8,7 +8,7 @@ The UNO server is a Go HTTP service that implements the UNO card game as a small
 
 - Go module `uno-server`, built against `go 1.27.3`.
 - Standard library only. The `go.mod` file has no `require` block.
-- Compiles to a single static binary that serves HTTP on port `:8080` through the `net/http` default mux.
+- Compiles to a single static binary that serves HTTP on port `:8080` (the default, change it with `-p`) through the `net/http` default mux.
 - Logs through `slog` as JSON, written to stdout and appended to `app.json.log`.
 - MIT licensed.
 
@@ -56,4 +56,3 @@ The server sets no `Content-Type` header, so HTTP clients receive every body as 
 - [Quickstart](/en/quickstart): start the server and play a first card.
 - [Rooms](/en/concepts/rooms): how room creation, dealing, and state files work.
 - [Play a turn](/en/guides/play-a-turn): the rules the `/action` route enforces.
-

@@ -32,6 +32,24 @@ go build
 
 服务监听 `8080` 端口。日志行是 JSON 格式，写入标准输出和当前工作目录下的 `app.json.log`。
 
+在 `-p` 后面跟端口号即可改用其他端口，例如 `./uno-server -p 9000` 或 `go run . -p 9000`。
+
+启动日志会在 JSON 的 `port` 字段中记录实际使用的端口：
+
+```json
+{"time":"2024-05-12T09:14:02Z","level":"INFO","msg":"UNO Server Started","port":":9000"}
+```
+
+`-h` 或 `--help` 会打印用法并直接退出，不启动服务：
+
+```text
+Usage: [-p port(int)]
+```
+
+<Callout kind="info" collapsed="false">
+  如果换了端口，需要把本页后面 `curl` 示例中的 `8080` 换成新端口。
+</Callout>
+
 ## 检查服务
 
 ```bash

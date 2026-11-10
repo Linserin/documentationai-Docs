@@ -36,6 +36,29 @@ go build
 
 The server listens on port `8080`. Its log lines are JSON, written to stdout and to `app.json.log` in the working directory.
 
+Pass `-p` followed by a port number to listen somewhere else. Give the port number only; the server adds the leading colon itself.
+
+```bash
+./uno-server -p 9000
+go run . -p 9000
+```
+
+The startup log line records the port actually in use, in the `port` field of the JSON entry.
+
+```json
+{"time":"2024-05-12T09:14:02Z","level":"INFO","msg":"UNO Server Started","port":":9000"}
+```
+
+`-h` or `--help` prints the usage line and exits without starting the server.
+
+```text
+Usage: [-p port(int)]
+```
+
+<Callout kind="info" collapsed="false">
+  If you change the port, replace `8080` with the new port in the `curl` examples later on this page.
+</Callout>
+
 ## Check that it runs
 
 ```bash
@@ -115,4 +138,3 @@ Every action rewrites both files, so a restart keeps the rooms that are still on
 
 - [Rooms](/en/concepts/rooms): how a room is created, dealt, and stored.
 - [Rules](/en/reference/rules): the card IDs, legality checks, and penalty rules the server enforces.
-

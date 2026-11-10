@@ -8,7 +8,7 @@ UNO 服务器是一个 Go HTTP 服务，用少量 JSON 接口实现 UNO 纸牌�
 
 - Go 模块 `uno-server`，基于 `go 1.27.3` 构建。
 - 只使用标准库。`go.mod` 中没有 `require` 块。
-- 编译为单个静态二进制文件，通过 `net/http` 的默认多路复用器在端口 `:8080` 上提供 HTTP 服务。
+- 编译为单个静态二进制文件，通过 `net/http` 的默认多路复用器在端口 `:8080` 上提供 HTTP 服务（`8080` 是默认值，可用 `-p` 修改）。
 - 通过 `slog` 以 JSON 格式写日志，输出到标准输出并追加到 `app.json.log`。
 - 采用 `MIT` 许可。
 
@@ -56,4 +56,3 @@ UNO 服务器是一个 Go HTTP 服务，用少量 JSON 接口实现 UNO 纸牌�
 - [快速开始](/zh/quickstart)：启动服务器并打出第一张牌。
 - [房间](/zh/concepts/rooms)：房间创建、发牌和状态文件的工作方式。
 - [进行一回合](/zh/guides/play-a-turn)：`/action` 路由所执行的规则。
-
